@@ -1,25 +1,118 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+author: "elm"
+output: html_document
+keep_md: true
 ---
 
+*Setup so code is readable, install packages*  
 
-## Loading and preprocessing the data
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)  
 
+library(ggplot2)
+library(dplyr)
+```
 
+## Loading and preprocessing the data  
+*Load data, aggregate by dates*  
 
-## What is mean total number of steps taken per day?
+```{r eval=TRUE}
+activity <- read.csv("activity.csv")  
 
+daysteps <- aggregate(activity$steps, by=list(date=activity$date), FUN=sum)
+```
 
+## What is mean total number of steps taken per day?  
+*Calculate mean and median steps per day*  
 
-## What is the average daily activity pattern?
+```{r eval=TRUE}
+meansteps <- mean(daysteps$x, na.rm=TRUE)
+meansteps  
 
+mediansteps <- median(daysteps$x, na.rm=TRUE)
+mediansteps
+```
 
+*Plot histogram of steps by day*  
 
-## Imputing missing values
+```{r eval=TRUE}
+ggplot(daysteps, aes(x=date, y=x)) +
+  geom_histogram(stat="identity", width=1) + 
+  theme(legend.position = "none") +
+  labs(y="Step count", x="Date")
+```
 
+## What is the average daily activity pattern?  
+*Average intervals across days, find interval with highest number of steps*  
 
+```{r eval=TRUE}
+intervalsteps <- aggregate(activity$steps, by=list(interval=activity$interval), FUN=mean, na.rm=TRUE)  
 
-## Are there differences in activity patterns between weekdays and weekends?
+highest <- intervalsteps[which.max(intervalsteps$x),]
+highest
+```
+
+*Plot histogram of steps by interval*  
+
+```{r eval=TRUE}
+ggplot(intervalsteps, aes(x=interval, y=x)) +
+  geom_histogram(stat="identity", width=5) + 
+  theme(legend.position = "none") +
+  labs(y="Step count", x="Interval")
+```
+
+## Imputing missing values  
+*Replace NAs in dataset*  
+
+```{r eval=TRUE}
+sum(!complete.cases(activity))
+meaninterval <- mean(activity$steps, na.rm=TRUE)
+activity$steps[is.na(activity$steps)] <- meaninterval
+```
+
+*Redo histogram, mean and median of steps per day*  
+
+```{r eval=TRUE}
+daysteps2 <- aggregate(activity$steps, by=list(date=activity$date), FUN=sum)
+ggplot(daysteps2, aes(x=date, y=x)) +
+  geom_histogram(stat="identity", width=1) + 
+  theme(legend.position = "none") +
+  labs(y="Step count", x="Date")  
+
+meansteps2 <- mean(daysteps2$x, na.rm=TRUE)
+meansteps2  
+
+mediansteps2 <- median(daysteps2$x, na.rm=TRUE)
+mediansteps2
+```
+
+*Histogram is similar with fewer gaps. Mean and median are the same.*  
+
+## Are there differences in activity patterns between weekdays and weekends?  
+*Add column to activity dataframe with weekday/weekend*
+
+```{r eval=TRUE}
+activity <- mutate(activity, date=as.POSIXlt(date, format="%Y-%m-%d"))
+activity$weekday = weekdays(activity$date)  
+
+activity$weekday[activity$weekday=="Monday"|activity$weekday=="Tuesday"|activity$weekday=="Wednesday"|activity$weekday=="Thursday"|activity$weekday=="Friday"] <- "Weekday"
+activity$weekday[activity$weekday=="Saturday"|activity$weekday=="Sunday"] <- "Weekend"  
+
+weekdays <- activity[activity$weekday=="Weekday",]
+weekends <- activity[activity$weekday=="Weekend",]  
+
+weekdays2 <- aggregate(weekdays$steps, list(weekdays$interval), FUN=mean, na.rm=TRUE)
+weekdays2$weekday <- "Weekday"
+weekends2 <- aggregate(weekends$steps, list(weekends$interval), FUN=mean, na.rm=TRUE)
+weekends2$weekday <- "Weekend"
+activity2 <- rbind(weekdays2, weekends2)  
+
+p <- ggplot(activity2, aes(x=Group.1, y=x)) + 
+  geom_line() + 
+  facet_wrap(~weekday, nrow=2) +
+  xlab("Time interval") + 
+  ylab("Steps")
+p
+
+```
